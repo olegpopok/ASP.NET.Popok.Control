@@ -35,13 +35,13 @@ namespace Library
             {
                 throw new ArgumentException();
             }
-            Init(capasity);
+            Initialize(capasity);
             this._comparer = comparer ?? EqualityComparer<TKey>.Default;
         }
 
         public int Count()
         {
-            return _count - _freeCount;
+            return _count - _freeCount ;
         }
 
         public void Add(TKey key, TValue value)
@@ -51,7 +51,7 @@ namespace Library
                 throw new ArgumentNullException("key");
             }
 
-            int hash = _comparer.GetHashCode(key);
+            int hash = _comparer.GetHashCode(key) & 0x7FFFFFFF;
             int targetBucket = hash % _buckets.Length;
             int collisionCount = 0;
             for (int i = _buckets[targetBucket]; i >= 0; i = _entries[i].next)
@@ -92,7 +92,6 @@ namespace Library
             {
                 Resize();
             }
-
         }
             
         public bool Remove(TKey key)
@@ -102,7 +101,7 @@ namespace Library
                 throw new ArgumentNullException();
             }
 
-            int hashCode = _comparer.GetHashCode(key);
+            int hashCode = _comparer.GetHashCode(key) & 0x7FFFFFFF;
             int targetBucket = hashCode % _buckets.Length;
             int last = -1;
             for(int i = _buckets[targetBucket]; i >=0 ; last = i, i = _entries[i].next)
@@ -127,8 +126,7 @@ namespace Library
             {
                 throw new ArgumentNullException();
             }
-
-            int hashCode = _comparer.GetHashCode(key);
+            int hashCode = _comparer.GetHashCode(key) & 0x7FFFFFFF;
             int bucket = hashCode % _buckets.Length;
             for(int index = _buckets[bucket]; index >= 0; index = _entries[index].next)
             {
@@ -161,15 +159,11 @@ namespace Library
             return GetEnumerator();
         }
 
-        private void Init(int capasity)
+        private void Initialize(int capasity)
         {
-
             int newCapasity = capasity == 0 ? DefaultCapasity : HashTableHelper.GetPrime(capasity);
             _buckets = new int[newCapasity];
-            for(int index = 0; index < _buckets.Length; index++)
-            {
-                _buckets[index] = -1;
-            }
+            DefaultInitBuckets(_buckets);
             _entries = new Entry[newCapasity];
             _freeList = -1;
         }
@@ -178,15 +172,13 @@ namespace Library
         {
             int newSize = HashTableHelper.GetPrime(_buckets.Length*2);
             int[] newBuckets = new int[newSize];
-            for (int i = 0; i < newBuckets.Length; i++)
-            {
-                newBuckets[i] = -1;
-            }
+            DefaultInitBuckets(newBuckets);
             Entry[] newEntries = new Entry[newSize];
             Array.Copy(_entries, 0, newEntries, 0, _count);
+
             for (int i = 0; i < _count; i++)
             {
-                if (newEntries[i].hashCode > 0)
+                if (newEntries[i].hashCode >= 0)
                 {
                     int bucket = newEntries[i].hashCode % newSize;
                     newEntries[i].next = newBuckets[bucket];
@@ -197,10 +189,23 @@ namespace Library
             _buckets = newBuckets;
         }
 
+        private void DefaultInitBuckets(int[] buckets)
+        {
+            for(int index = 0; index < buckets.Length; index++)
+            {
+                buckets[index] = -1;
+            }
+        }
+
         private static class HashTableHelper
         {
-            public const int MaxColisionCount = 10;
-            private static int[] _primes = { 3, 5, 7, 13, 17, 23, 29 }; // и т.д.
+            public const int MaxColisionCount = 50;
+            public static readonly int[] _primes = {
+            3, 7, 11, 17, 23, 29, 37, 47, 59, 71, 89, 107, 131, 163, 197, 239, 293, 353, 431, 521, 631, 761, 919,
+            1103, 1327, 1597, 1931, 2333, 2801, 3371, 4049, 4861, 5839, 7013, 8419, 10103, 12143, 14591,
+            17519, 21023, 25229, 30293, 36353, 43627, 52361, 62851, 75431, 90523, 108631, 130363, 156437,
+            187751, 225307, 270371, 324449, 389357, 467237, 560689, 672827, 807403, 968897, 1162687, 1395263,
+            1674319, 2009191, 2411033, 2893249, 3471899, 4166287, 4999559, 5999471, 7199369};
 
             public static int GetPrime(int min)
             {
